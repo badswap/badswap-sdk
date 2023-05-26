@@ -1,0 +1,233 @@
+{
+    "nested": {
+        "badswap": {
+            "nested": {
+                "FiatOffer": {
+                    "fields": {
+                        "backend": {
+                            "type": "PAYMENT_BACKEND",
+                            "id": 0
+                        },
+                        "availableVolume": {
+                            "type": "bytes",
+                            "id": 1
+                        },
+                        "price": {
+                            "type": "bytes",
+                            "id": 2
+                        }
+                    },
+                    "nested": {
+                        "PAYMENT_BACKEND": {
+                            "values": {
+                                "INVALID": 0,
+                                "CASHAPP": 1,
+                                "ZELLE": 2,
+                                "BOFA": 3
+                            }
+                        }
+                    }
+                },
+                "CryptoOffer": {
+                    "fields": {
+                        "token": {
+                            "type": "bytes",
+                            "id": 1
+                        },
+                        "amount": {
+                            "type": "bytes",
+                            "id": 2
+                        },
+                        "chainId": {
+                            "type": "uint32",
+                            "id": 3
+                        },
+                        "price": {
+                            "type": "bytes",
+                            "id": 4
+                        }
+                    }
+                },
+                "Offer": {
+                    "oneofs": {
+                        "data": {
+                            "oneof": [
+                                "fiat",
+                                "crypto"
+                            ]
+                        }
+                    },
+                    "fields": {
+                        "fiat": {
+                            "type": "FiatOffer",
+                            "id": 1
+                        },
+                        "crypto": {
+                            "type": "CryptoOffer",
+                            "id": 2
+                        }
+                    }
+                },
+                "OfferList": {
+                    "fields": {
+                        "offers": {
+                            "rule": "repeated",
+                            "type": "Offer",
+                            "id": 1
+                        }
+                    }
+                },
+                "UserData": {
+                    "fields": {
+                        "bio": {
+                            "type": "string",
+                            "id": 1
+                        },
+                        "image": {
+                            "type": "bytes",
+                            "id": 2
+                        },
+                        "offers": {
+                            "type": "OfferList",
+                            "id": 3
+                        }
+                    }
+                },
+                "Fill": {
+                    "fields": {
+                        "offerHash": {
+                            "type": "bytes",
+                            "id": 1
+                        },
+                        "amount": {
+                            "type": "bytes",
+                            "id": 2
+                        }
+                    }
+                },
+                "BatchFill": {
+                    "fields": {
+                        "fills": {
+                            "rule": "repeated",
+                            "type": "Fill",
+                            "id": 1
+                        }
+                    }
+                },
+                "NameQuery": {
+                    "oneofs": {
+                        "data": {
+                            "oneof": [
+                                "multiaddr",
+                                "name"
+                            ]
+                        }
+                    },
+                    "fields": {
+                        "multiaddr": {
+                            "type": "bytes",
+                            "id": 1
+                        },
+                        "name": {
+                            "type": "string",
+                            "id": 2
+                        }
+                    }
+                },
+                "NameQueryResponse": {
+                    "fields": {
+                        "status": {
+                            "type": "NameQueryResponseStatus",
+                            "id": 1
+                        },
+                        "result": {
+                            "type": "string",
+                            "id": 2
+                        }
+                    },
+                    "nested": {
+                        "NameQueryResponseStatus": {
+                            "values": {
+                                "NAMEREG_QUERY_ERR": 0,
+                                "NAMEREG_QUERY_OK": 1
+                            }
+                        }
+                    }
+                },
+                "NameRegisterResponse": {
+                    "fields": {
+                        "status": {
+                            "type": "NameRegisterResponseStatus",
+                            "id": 1
+                        }
+                    },
+                    "nested": {
+                        "NameRegisterResponseStatus": {
+                            "values": {
+                                "NAMEREG_OK": 0,
+                                "NAMEREG_NO": 1,
+                                "NAMEREG_ERR": 2
+                            }
+                        }
+                    }
+                },
+                "Permit1Data": {
+                    "fields": {
+                        "v": {
+                            "type": "bytes",
+                            "id": 1
+                        },
+                        "r": {
+                            "type": "bytes",
+                            "id": 2
+                        },
+                        "s": {
+                            "type": "bytes",
+                            "id": 3
+                        },
+                        "expiry": {
+                            "type": "bytes",
+                            "id": 4
+                        }
+                    }
+                },
+                "Permit2Data": {
+                    "fields": {
+                        "nonce": {
+                            "type": "bytes",
+                            "id": 1
+                        },
+                        "deadline": {
+                            "type": "bytes",
+                            "id": 2
+                        },
+                        "signature": {
+                            "type": "bytes",
+                            "id": 3
+                        }
+                    }
+                },
+                "PermitData": {
+                    "oneofs": {
+                        "data": {
+                            "oneof": [
+                                "permit1Data",
+                                "permit2Data"
+                            ]
+                        }
+                    },
+                    "fields": {
+                        "permit1Data": {
+                            "type": "Permit1Data",
+                            "id": 1
+                        },
+                        "permit2Data": {
+                            "type": "Permit2Data",
+                            "id": 2
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

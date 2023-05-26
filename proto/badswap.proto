@@ -1,0 +1,94 @@
+syntax = "proto3";
+package badswap;
+
+message FiatOffer {
+  enum PAYMENT_BACKEND {
+    INVALID = 0;
+    CASHAPP = 1;
+    ZELLE = 2;
+    BOFA = 3;
+  }
+  PAYMENT_BACKEND backend = 0;
+  bytes available_volume = 1;
+  bytes price = 2;
+}
+
+message CryptoOffer {
+  bytes token = 1;
+  bytes amount = 2;
+  uint32 chain_id = 3;
+  bytes price = 4;
+}
+
+message Offer {
+  oneof data {
+    FiatOffer fiat = 1;
+    CryptoOffer crypto = 2;
+  };
+}
+
+message OfferList {
+  repeated Offer offers = 1;
+}
+
+message UserData {
+  string bio = 1;
+  bytes image = 2;
+  OfferList offers = 3;
+}
+
+message Fill {
+  bytes offer_hash = 1;
+  bytes amount = 2;
+}
+
+message BatchFill {
+  repeated Fill fills = 1;
+} 
+
+message NameQuery {
+  oneof data {
+    bytes multiaddr = 1;
+    string name = 2;
+  }
+}
+
+message NameQueryResponse {
+  enum NameQueryResponseStatus {
+    NAMEREG_QUERY_ERR = 0;
+    NAMEREG_QUERY_OK = 1;
+  }
+  NameQueryResponseStatus status = 1;
+  string result = 2;
+}
+
+
+message NameRegisterResponse {
+  enum NameRegisterResponseStatus {
+    NAMEREG_OK = 0;
+    NAMEREG_NO = 1;
+    NAMEREG_ERR = 2;
+  }
+  NameRegisterResponseStatus status = 1;
+}
+
+message Permit1Data {
+  bytes v = 1;
+  bytes r = 2;
+  bytes s = 3;
+  bytes expiry = 4;
+}
+
+message Permit2Data {
+  bytes nonce = 1;
+  bytes deadline = 2;
+  bytes signature = 3;
+}
+
+message PermitData {
+  oneof data {
+    Permit1Data permit1_data = 1;
+    Permit2Data permit2_data = 2;
+  }
+}
+
