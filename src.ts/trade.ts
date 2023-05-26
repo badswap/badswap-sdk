@@ -116,7 +116,6 @@ export const toWETH = (chainId: number | string = 1) => {
   );
 };
 
-
 export const isFiatOffer = (offer) => {
   return Boolean(offer.backend);
 };
@@ -126,18 +125,26 @@ export const isCryptoOffer = (offer) => {
 };
 
 export const offerToProtobufStruct = (offer) => {
-  return isFiatOffer(offer) ? {
-    fiat: offer
-  } : {
-    crypto: offer
-  }
+  return isFiatOffer(offer)
+    ? {
+        fiat: offer,
+      }
+    : {
+        crypto: offer,
+      };
 };
 
 export const hashOffer = (offer) => {
   if (isFiatOffer(offer)) {
-    return solidityPackedKeccak256(['address', 'uint256', 'uint256', 'uint256' ], [ offer.token, offer.amount, offer.chainId, offer.price ]);
+    return solidityPackedKeccak256(
+      ["address", "uint256", "uint256", "uint256"],
+      [offer.token, offer.amount, offer.chainId, offer.price]
+    );
   } else {
-    return solidityPackedKeccak256(['uint256', 'uint256', 'uint256' ], [ offer.backend, offer.availableVolume, offer.price ]);
+    return solidityPackedKeccak256(
+      ["uint256", "uint256", "uint256"],
+      [offer.backend, offer.availableVolume, offer.price]
+    );
   }
 };
 
@@ -182,7 +189,7 @@ export const createContract = (
   maker: string,
   taker: string,
   chainId: string | number = 1,
-  permitData: any = {},
+  permitData: any = {}
 ) => {
   let firstInstruction = true;
   let beforeCall = true;
@@ -394,16 +401,8 @@ export const createContract = (
     }
   };
   return emasm([
-    (permitData &&
-      permitData.v &&
-      permit(offer, maker, permitData)) ||
-      [],
-    transferFrom(
-      offer,
-      maker,
-      "0x" + "1".repeat(40),
-      permitData
-    ),
+    (permitData && permitData.v && permit(offer, maker, permitData)) || [],
+    transferFrom(offer, maker, "0x" + "1".repeat(40), permitData),
     ["iszero", "failure", "jumpi"],
     [
       "bytes:runtime:len",
@@ -440,21 +439,21 @@ export const createContract = (
             "and",
             "refund",
             "jumpi",
-	    "calldatasize",
-	    "returndatasize",
-	    "dup1",
-	    "calldatacopy",
-	    "calldatasize",
-	    "returndatasize",
-	    "keccak256",
+            "calldatasize",
+            "returndatasize",
+            "dup1",
+            "calldatacopy",
+            "calldatasize",
+            "returndatasize",
+            "keccak256",
             secret,
-	    "eq",
-	    "revealsuccess",
+            "eq",
+            "revealsuccess",
             "jumpi",
-	    "0x0",
-	    "0x0",
-	    "revert",
-	    ["revealsuccess", [transfer(offer, taker), taker, "selfdestruct"]],
+            "0x0",
+            "0x0",
+            "revert",
+            ["revealsuccess", [transfer(offer, taker), taker, "selfdestruct"]],
             ["refund", [transfer(offer, maker), maker, "selfdestruct"]],
           ],
         ]),
