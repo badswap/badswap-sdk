@@ -511,7 +511,6 @@ export class Badswap extends BadP2P {
 	messages.end();
 	await sinkPromise;
       });
-    );
   }
 
   // adds new offer to this.offers: Map<hash, any>

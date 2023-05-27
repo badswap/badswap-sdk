@@ -22,7 +22,7 @@ export declare function scaleOffer(offer: any, amount: BigNumberish): any;
 export declare function toBigIntFromBytes(b: any): bigint;
 export declare function sumOffers(offers: any[]): any;
 export declare const NS_MULTIADDRS: {
-    DRIP: string[];
+    BREAD: string[];
 };
 export interface IUserData {
     bio: string;
