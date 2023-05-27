@@ -151,7 +151,10 @@ export function decodeBatchFill(data) {
     }
   );
   return fills.map((v) => ({
-    offerHash: ethers.zeroPadValue(ethers.hexlify(ethers.decodeBase64(v.offerHash)), 32),
+    offerHash: ethers.zeroPadValue(
+      ethers.hexlify(ethers.decodeBase64(v.offerHash)),
+      32
+    ),
     amount: ethers.getUint(ethers.hexlify(ethers.decodeBase64(v.amount))),
   }));
 }
@@ -168,9 +171,7 @@ export function scaleOffer(offer: any, amount: BigNumberish) {
       tokenId: offer.gives.tokenId,
       token: offer.gives.token,
       amount: ethers.hexlify(
-        ethers.toBeArray(
-          (ethers.getUint(offer.gives.amount) * n) / d
-        )
+        ethers.toBeArray((ethers.getUint(offer.gives.amount) * n) / d)
       ),
     },
     gets: {
@@ -476,41 +477,129 @@ export class Badswap extends BadP2P {
     });
 
     await this.handle(
+      "/badswap/0.1.0/check-trade",
+      async ({ stream, connection, protocol }) => {
+        const messages = pushable();
+        const source = pipe(stream.source, lp.decode());
+        const sinkPromise = pipe(messages, lp.encode(), stream.sink);
+        try {
+          const fillRequest = this._decodeTradeRequest(
+            (await source.next()).value.slice()
+          );
+          const canFill = await this.canFill(fillRequest.offer.gets);
+
+          messages.push(
+            this._encodeCheckTradeResponse({
+              result: {
+                volume: canFill,
+              },
+            })
+          );
+        } catch (e) {
+          this.logger.error(e);
+          messages.push(
+            this._encodeCheckTradeResponse({
+              error: {
+                code: "UNEXPECTED",
+              },
+            })
+          );
+        }
+        messages.end();
+        await sinkPromise;
+      }
+    );
+    await this.handle(
       "/badswap/0.1.0/create-trade",
       async ({ stream, connection, protocol }) => {
         const messages = pushable();
-	const source = pipe(stream.source, lp.decode());
-	const sinkPromise = pipe(messages, lp.encode());
-        const fillRequest = this._decodeOfferFillRequest((await source.next()).value.slice()); 
-	const canFill = await this.canFill(fillRequest.offer.gets);
-	if (!canFill) {
-          messages.end();
-	  return;
-	}
-	messages.push(await this.signer.getAddress());
-	const transactionHash = ethers.hexlify((await source.next()).value.slice());
-	this.logger.info('escrow creation tx|' + transactionHash);
-	await this.signer.provider.waitForTransaction(transactionHash);
-	const { data, nonce, from } = await this.signer.provider.getTransaction(transactionHash);
-	const contractAddress = getCreateAddress({ nonce, from });
-	this.logger.info('escrow contract|' + contractAddress);
-	const isValid = await this.validateEscrowContract(data, fillRequest, await this.signer.getAddress());
-	if (!isValid) {
-          messages.end();
-	  return;
-	}
-        const proof = await this.fillOffer(fillRequest);
-	messages.push(proof);
-	const secret = ethers.hexlify((await source.next()).value);
-	this.logger.info('secret|' + secret);
-	const tx = await this.signer.sendTransaction({
-          to: contractAddress,
-	  data: secret
-	});
-	this.logger.info('release escrow tx|' + tx.hash);
-	messages.end();
-	await sinkPromise;
-      });
+        const source = pipe(stream.source, lp.decode());
+        const sinkPromise = pipe(messages, lp.encode(), stream.sink);
+        try {
+          const tradeRequestBytes = (await source.next()).value.slice();
+          const fillRequest = this._decodeTradeRequest(tradeRequestBytes);
+          const canFill = await this.canFill(fillRequest.offer.gets);
+
+          messages.push(
+            this._encodeCheckTradeResponse({
+              result: {
+                volume: canFill,
+              },
+            })
+          );
+          await source.next();
+          messages.push(
+            this._encodeCreateTradeResponse({
+              fill: {
+                maker: await this.signer.getAddress(),
+                taker: fillRequest.address,
+                offer: fillRequest.offer,
+                nonce: fillRequest.nonce,
+                amount: canFill,
+              },
+            })
+          );
+        } catch (e) {
+          this.logger.error(e);
+          messages.push(
+            this._encodeTradeResponse({
+              error: {
+                code: "UNEXPECTED",
+              },
+            })
+          );
+        }
+        messages.end();
+        await sinkPromise;
+      }
+    );
+    await this.handle(
+      "/badswap/0.1.0/notify-escrow",
+      async ({ stream, connection, protocol }) => {
+        const messages = pushable();
+        const source = pipe(stream.source, lp.decode());
+        const sinkPromise = pipe(messages, lp.encode(), stream.sink);
+        try {
+          const notifyEscrowRequestBytes = (await source.next()).value.slice();
+          const notifyEscrowRequest = this._decodeNotifyEscrowRequest(
+            notifyEscrowRequestBytes
+          );
+          const { transactionHash } = notifyEscrowRequest;
+          this.logger.info("escrow creation tx|" + transactionHash);
+          await this.signer.provider.waitForTransaction(transactionHash);
+          const { data, nonce, from } =
+            await this.signer.provider.getTransaction(transactionHash);
+          const contractAddress = getCreateAddress({ nonce, from });
+          this.logger.info("escrow contract|" + contractAddress);
+          const isValid = await this.validateEscrowContract(
+            data,
+            notifyEscrowRequest,
+            await this.signer.getAddress()
+          );
+          if (!isValid) throw Error("escrow bytecode invalid");
+          const proof = await this.fillOffer(notifyEscrowRequest);
+          messages.push(proof);
+          const secret = ethers.hexlify((await source.next()).value);
+          this.logger.info("secret|" + secret);
+          const tx = await this.signer.sendTransaction({
+            to: contractAddress,
+            data: secret,
+          });
+          this.logger.info("release escrow tx|" + tx.hash);
+        } catch (e) {
+          this.logger.error(e);
+          messages.push(
+            this._encodeTradeResponse({
+              error: {
+                code: "UNEXPECTED",
+              },
+            })
+          );
+        }
+        messages.end();
+        await sinkPromise;
+      }
+    );
   }
 
   // adds new offer to this.offers: Map<hash, any>
@@ -612,7 +701,6 @@ export class Badswap extends BadP2P {
   async approveTrade(transfer: any, sharedAddress: string) {
     const tradeAddress = await this.getTradeAddress(sharedAddress);
     if (isERC721Transfer(transfer) || isERC1155Transfer(transfer)) {
-
       if (await detectERC721Permit(transfer.token, this.signer)) {
         const expiry = Math.floor(Date.now() / 1000) + 60 * 60 * 24;
         const permitData = await erc721Permit.signAndMergeERC721(
@@ -676,9 +764,13 @@ export class Badswap extends BadP2P {
         ],
         this.signer
       );
-      const wethBalance = ethers.toBigInt(await weth.balanceOf(await this.signer.getAddress()));
+      const wethBalance = ethers.toBigInt(
+        await weth.balanceOf(await this.signer.getAddress())
+      );
       if (wethBalance < ethers.toBigInt(transfer.amount)) {
-        const depositTx = await weth.deposit({ value: ethers.toBigInt(transfer.amount) - wethBalance });
+        const depositTx = await weth.deposit({
+          value: ethers.toBigInt(transfer.amount) - wethBalance,
+        });
         if (this._awaitReceipts)
           await this.signer.provider.waitForTransaction(depositTx.hash);
       }
@@ -786,7 +878,15 @@ export class Badswap extends BadP2P {
     taker: string,
     permitData: any
   ) {
-    const contract = createContract(offer.gives, Math.floor(Date.now() / 1000) + 60*60*24, ethers.hexlify(randomBytes(32)), maker, taker, (await this.signer.getNetwork()).chainId, permitData);
+    const contract = createContract(
+      offer.gives,
+      Math.floor(Date.now() / 1000) + 60 * 60 * 24,
+      ethers.hexlify(randomBytes(32)),
+      maker,
+      taker,
+      (await this.signer.getNetwork()).chainId,
+      permitData
+    );
     return contract;
   }
 

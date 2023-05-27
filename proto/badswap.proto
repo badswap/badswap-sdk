@@ -110,3 +110,23 @@ message PermitData {
   }
 }
 
+message TradeRequest {
+  Offer offer = 1;
+  bytes address = 2;
+}
+
+message Error
+  enum CODE {
+    INVALID = 0;
+    UNEXPECTED = 1;
+    INSUFFICIENT_BALANCE = 2;
+  }
+  CODE code = 1;
+}
+
+message CheckTradeResponse {
+  oneof result {
+    bytes volume = 1;
+    Error error = 2;
+  }
+}
