@@ -1,30 +1,57 @@
 syntax = "proto3";
 package badswap;
 
-message FiatOffer {
+message ERC20Transfer {
+  bytes token = 1;
+  bytes amount = 2;
+}
+
+message ERC721Transfer {
+  bytes token = 1;
+  bytes token_id = 2;
+}
+
+message ERC1155Transfer {
+  bytes token = 1;
+  bytes token_id = 2;
+  bytes amount = 3;
+}
+
+message CryptoTransfer {
+  oneof transfer {
+    ERC20Transfer erc20 = 1;
+    ERC721Transfer erc721 = 2;
+    ERC1155Transfer erc1155 = 3;
+  }
+  uint32 chain_id = 4;
+}
+
+message FiatTransfer {
   enum PAYMENT_BACKEND {
     INVALID = 0;
     CASHAPP = 1;
     ZELLE = 2;
     BOFA = 3;
   }
-  PAYMENT_BACKEND backend = 0;
-  bytes available_volume = 1;
+  PAYMENT_BACKEND backend = 1;
+  bytes amount = 2;
+}
+
+message Transfer {
+  oneof data {
+    CryptoTransfer crypto = 1;
+    FiatTransfer fiat = 2;
+  }
+}
+
+message FiatOffer {
+  FiatTransfer offer = 1;
   bytes price = 2;
 }
 
-message CryptoOffer {
-  bytes token = 1;
-  bytes amount = 2;
-  uint32 chain_id = 3;
-  bytes price = 4;
-}
-
 message Offer {
-  oneof data {
-    FiatOffer fiat = 1;
-    CryptoOffer crypto = 2;
-  };
+  Transfer gives = 1;
+  Transfer gets = 2;
 }
 
 message OfferList {
@@ -36,15 +63,6 @@ message UserData {
   bytes image = 2;
   OfferList offers = 3;
 }
-
-message Fill {
-  bytes offer_hash = 1;
-  bytes amount = 2;
-}
-
-message BatchFill {
-  repeated Fill fills = 1;
-} 
 
 message NameQuery {
   oneof data {

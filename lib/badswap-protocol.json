@@ -2,17 +2,82 @@
     "nested": {
         "badswap": {
             "nested": {
-                "FiatOffer": {
+                "ERC20Transfer": {
                     "fields": {
-                        "backend": {
-                            "type": "PAYMENT_BACKEND",
-                            "id": 0
-                        },
-                        "availableVolume": {
+                        "token": {
                             "type": "bytes",
                             "id": 1
                         },
-                        "price": {
+                        "amount": {
+                            "type": "bytes",
+                            "id": 2
+                        }
+                    }
+                },
+                "ERC721Transfer": {
+                    "fields": {
+                        "token": {
+                            "type": "bytes",
+                            "id": 1
+                        },
+                        "tokenId": {
+                            "type": "bytes",
+                            "id": 2
+                        }
+                    }
+                },
+                "ERC1155Transfer": {
+                    "fields": {
+                        "token": {
+                            "type": "bytes",
+                            "id": 1
+                        },
+                        "tokenId": {
+                            "type": "bytes",
+                            "id": 2
+                        },
+                        "amount": {
+                            "type": "bytes",
+                            "id": 3
+                        }
+                    }
+                },
+                "CryptoTransfer": {
+                    "oneofs": {
+                        "transfer": {
+                            "oneof": [
+                                "erc20",
+                                "erc721",
+                                "erc1155"
+                            ]
+                        }
+                    },
+                    "fields": {
+                        "erc20": {
+                            "type": "ERC20Transfer",
+                            "id": 1
+                        },
+                        "erc721": {
+                            "type": "ERC721Transfer",
+                            "id": 2
+                        },
+                        "erc1155": {
+                            "type": "ERC1155Transfer",
+                            "id": 3
+                        },
+                        "chainId": {
+                            "type": "uint32",
+                            "id": 4
+                        }
+                    }
+                },
+                "FiatTransfer": {
+                    "fields": {
+                        "backend": {
+                            "type": "PAYMENT_BACKEND",
+                            "id": 1
+                        },
+                        "amount": {
                             "type": "bytes",
                             "id": 2
                         }
@@ -28,42 +93,46 @@
                         }
                     }
                 },
-                "CryptoOffer": {
-                    "fields": {
-                        "token": {
-                            "type": "bytes",
-                            "id": 1
-                        },
-                        "amount": {
-                            "type": "bytes",
-                            "id": 2
-                        },
-                        "chainId": {
-                            "type": "uint32",
-                            "id": 3
-                        },
-                        "price": {
-                            "type": "bytes",
-                            "id": 4
-                        }
-                    }
-                },
-                "Offer": {
+                "Transfer": {
                     "oneofs": {
                         "data": {
                             "oneof": [
-                                "fiat",
-                                "crypto"
+                                "crypto",
+                                "fiat"
                             ]
                         }
                     },
                     "fields": {
-                        "fiat": {
-                            "type": "FiatOffer",
+                        "crypto": {
+                            "type": "CryptoTransfer",
                             "id": 1
                         },
-                        "crypto": {
-                            "type": "CryptoOffer",
+                        "fiat": {
+                            "type": "FiatTransfer",
+                            "id": 2
+                        }
+                    }
+                },
+                "FiatOffer": {
+                    "fields": {
+                        "offer": {
+                            "type": "FiatTransfer",
+                            "id": 1
+                        },
+                        "price": {
+                            "type": "bytes",
+                            "id": 2
+                        }
+                    }
+                },
+                "Offer": {
+                    "fields": {
+                        "gives": {
+                            "type": "Transfer",
+                            "id": 1
+                        },
+                        "gets": {
+                            "type": "Transfer",
                             "id": 2
                         }
                     }
@@ -90,27 +159,6 @@
                         "offers": {
                             "type": "OfferList",
                             "id": 3
-                        }
-                    }
-                },
-                "Fill": {
-                    "fields": {
-                        "offerHash": {
-                            "type": "bytes",
-                            "id": 1
-                        },
-                        "amount": {
-                            "type": "bytes",
-                            "id": 2
-                        }
-                    }
-                },
-                "BatchFill": {
-                    "fields": {
-                        "fills": {
-                            "rule": "repeated",
-                            "type": "Fill",
-                            "id": 1
                         }
                     }
                 },
