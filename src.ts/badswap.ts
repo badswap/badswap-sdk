@@ -3,6 +3,7 @@ import { BadP2P } from "./p2p";
 import { BigNumberish, ethers } from "ethers";
 import { pipe } from "it-pipe";
 import * as lp from "it-length-prefixed";
+import { sync as randomBytes } from "random-bytes";
 import {
   TPCEcdsaKeyGen as TPC,
   TPCEcdsaSign as TPCsign,
@@ -217,7 +218,7 @@ export function sumOffers(offers: any[]) {
 }
 
 export const NS_MULTIADDRS = {
-  DRIP: ["QmUtvU33iaHun99yD9HgiyLSrmPhWUbXVX2hAZRY4AEV2d"],
+  BREAD: ["QmUtvU33iaHun99yD9HgiyLSrmPhWUbXVX2hAZRY4AEV2d"],
 };
 
 export interface IUserData {
@@ -477,7 +478,39 @@ export class Badswap extends BadP2P {
     await this.handle(
       "/badswap/0.1.0/create-trade",
       async ({ stream, connection, protocol }) => {
-      }
+        const messages = pushable();
+	const source = pipe(stream.source, lp.decode());
+	const sinkPromise = pipe(messages, lp.encode());
+        const fillRequest = this._decodeOfferFillRequest((await source.next()).value.slice()); 
+	const canFill = await this.canFill(fillRequest.offer.gets);
+	if (!canFill) {
+          messages.end();
+	  return;
+	}
+	messages.push(await this.signer.getAddress());
+	const transactionHash = ethers.hexlify((await source.next()).value.slice());
+	this.logger.info('escrow creation tx|' + transactionHash);
+	await this.signer.provider.waitForTransaction(transactionHash);
+	const { data, nonce, from } = await this.signer.provider.getTransaction(transactionHash);
+	const contractAddress = getCreateAddress({ nonce, from });
+	this.logger.info('escrow contract|' + contractAddress);
+	const isValid = await this.validateEscrowContract(data, fillRequest, await this.signer.getAddress());
+	if (!isValid) {
+          messages.end();
+	  return;
+	}
+        const proof = await this.fillOffer(fillRequest);
+	messages.push(proof);
+	const secret = ethers.hexlify((await source.next()).value);
+	this.logger.info('secret|' + secret);
+	const tx = await this.signer.sendTransaction({
+          to: contractAddress,
+	  data: secret
+	});
+	this.logger.info('release escrow tx|' + tx.hash);
+	messages.end();
+	await sinkPromise;
+      });
     );
   }
 
@@ -751,28 +784,11 @@ export class Badswap extends BadP2P {
   async prepareTransaction(
     offer: any,
     maker: string,
-    sharedAddress: string,
+    taker: string,
     permitData: any
-  ) {}
-
-  async createTransaction(txParams: any, sharedAddress: string) {
-    const { gasLimit, maxFeePerGas, maxPriorityFeePerGas, gasPrice, data } =
-      txParams;
-
-    let sharedAddressBalance = toBigInt(
-      await this.signer.provider.getBalance(sharedAddress)
-    );
-    this.logger.debug(
-      `network ${(await this.signer.provider.getNetwork()).chainId}`,
-      sharedAddressBalance,
-      gasPrice,
-      gasLimit
-    );
-    return Object.assign(new Transaction(), txParams, {
-      chainId: (await this.signer.provider.getNetwork()).chainId,
-      nonce: await this.signer.provider.getTransactionCount(sharedAddress),
-      value: BigInt(0),
-    });
+  ) {
+    const contract = createContract(offer.gives, Math.floor(Date.now() / 1000) + 60*60*24, ethers.hexlify(randomBytes(32)), maker, taker, (await this.signer.getNetwork()).chainId, permitData);
+    return contract;
   }
 
   createTrade(peer, offer) {

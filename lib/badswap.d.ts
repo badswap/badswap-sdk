@@ -81,8 +81,7 @@ export declare class Badswap extends BadP2P {
     getTradeAddress(sharedAddress: string): Promise<string>;
     approveTrade(transfer: any, sharedAddress: string): Promise<any>;
     approvePermit2(asset: string): Promise<any>;
-    prepareTransaction(offer: any, maker: string, sharedAddress: string, permitData: any): Promise<void>;
-    createTransaction(txParams: any, sharedAddress: string): Promise<any>;
+    prepareTransaction(offer: any, maker: string, taker: string, permitData: any): Promise<any>;
     createTrade(peer: any, offer: any): BadswapTrade;
     createBatchTrade(peer: any, batchFill: any): BadswapTrade;
 }
