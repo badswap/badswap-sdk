@@ -107,12 +107,13 @@ message PermitData {
   oneof data {
     Permit1Data permit1_data = 1;
     Permit2Data permit2_data = 2;
-  }
+  }e
 }
 
 message TradeRequest {
   Offer offer = 1;
   bytes address = 2;
+  bytes nonce = 3;
 }
 
 message Error
@@ -130,3 +131,20 @@ message CheckTradeResponse {
     Error error = 2;
   }
 }
+
+message CreateTradeSuccess {
+  bytes taker = 1;
+  bytes maker = 2;
+  bytes nonce = 3;
+  Offer offer = 4;
+  bytes amount = 5;
+}
+  
+message CreateTradeResponse {
+  oneof result {
+    CreateTradeSuccess fill = 1;
+    Error error = 2;
+  }
+}
+
+
