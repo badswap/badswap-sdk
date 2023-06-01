@@ -579,14 +579,16 @@ export class Badswap extends BadP2P {
             await this.signer.getAddress()
           );
           if (!isValid) throw Error("escrow bytecode invalid");
-	  if (this.orderState[transactionHash]) throw Error("already notified");
-	  this.orderState[transactionHash] = {
-            ...notifyEscrowRequest
-	  };
-	  this.emit('notify-escrow', transactionHash);
-	  messages.push(this._encodeNotifyEscrowResponse({
-            transactionHash
-	  }));
+          if (this.orderState[transactionHash]) throw Error("already notified");
+          this.orderState[transactionHash] = {
+            ...notifyEscrowRequest,
+          };
+          this.emit("notify-escrow", transactionHash);
+          messages.push(
+            this._encodeNotifyEscrowResponse({
+              transactionHash,
+            })
+          );
         } catch (e) {
           this.logger.error(e);
           messages.push(
@@ -597,71 +599,97 @@ export class Badswap extends BadP2P {
             })
           );
         }
-	messages.end();
-	await sinkPromise;
-      });
-    }
-    async fillOffer(transactionHash) {
-      const order = this.orderState[transactionHash];
-      if (!order) throw Error('no order found');
-      /* fill via any means */
-      const proof = {};
-      order.status = 'FILLED';
-      order.proof = proof;
-      this.emit('offer-filled', { ...order });
-    }
-    async request(peerId, protocolTag, payload, encode, decode) {
-      const { stream } = await this.dialProtocol(peerId, protocolTag);
-      const decoded = pipe(stream.source, lp.decode());
-      const sinkPromise = pipe(messages, lp.encode(), stream.sink);
-      messages.push(encode(payload));
-      messages.end();
-      const result = decode((await decoded.next()).value.slice());
-      await sinkPromise;
-      return result;
-    }
-    async checkTrade(peerId, offer) {
-      return await this.request(peerId, '/badswap/0.1.0/check-trade', offer, (offer) => this._encodeCheckTradeRequest(offer), (responseBytes) => this._decodeCheckTradeResponse(responseBytes));
-    }
-    async createTrade(peerId, offer) {
-      return await this.request(peerId, '/badswap/0.1.0/create-trade', offer, (offer) => this._encodeCreateTradeRequest(offer), (responseBytes) => this._decodeCreateTradeResponse(responseBytes));
-    }
-    async notifyEscrow(transactionHash) {
-      const order = this.orderState[transactionHash];
-      return await this.request(order.peerId, '/badswap/0.1.0/notify-escrow', order, (order) => this._encodeNotifyEscrowRequest(order), (responseBytes) => this._decodeNotifyEscrowResponse(order));
-    }
-    async requestSecret(transactionHash) {
-      const order = this.orderState[transationHash];
-      const response = await this.request(order.peerId, '/badswap/0.1.0/request-secret', order, (order) => this._encodeRequestSecretRequest(order), (responseBytes) => this._decodeRequestSecretResponse(responseBytes));
-      const orderWithSecret = this.orderState[transactionHash] = {
-         ...order,
-	 secret: response.secret
-      };
-      this.logger.info('secret|' + orderWithSecret.secret);
-      this.emit('received-secret', orderWithSecret);
-      return response;
-    }
-    async getEscrowAddress(transactionHash) {
-      return (await this.signer.provider.getTransactionReceipt(transactionHash)).contractAddress;
-    }
-    async spendSecretForTransactionHash(transactionHash) {
-      const escrowAddress = await this.getEscrowAddress();
-      const order = this.orderState[transactionHash];
-      const secret = order.secret;
-      return await this.spendSecret(escrowAddress, secret);
-    }
-    async spendSecret(escrowAddress, secret) {
-      const tx = await this.signer.sendTransaction({
-        data: ethers.toBeArray(secret),
-	to: escrowAddress 
-      });
-      this.emit('spend-secret', {
-        escrowAddress,
-	secret,
-	txHash: tx.hash
-      });
-      return tx;
-    }
+        messages.end();
+        await sinkPromise;
+      }
+    );
+  }
+  async fillOffer(transactionHash) {
+    const order = this.orderState[transactionHash];
+    if (!order) throw Error("no order found");
+    /* fill via any means */
+    const proof = {};
+    order.status = "FILLED";
+    order.proof = proof;
+    this.emit("offer-filled", { ...order });
+  }
+  async request(peerId, protocolTag, payload, encode, decode) {
+    const { stream } = await this.dialProtocol(peerId, protocolTag);
+    const decoded = pipe(stream.source, lp.decode());
+    const sinkPromise = pipe(messages, lp.encode(), stream.sink);
+    messages.push(encode(payload));
+    messages.end();
+    const result = decode((await decoded.next()).value.slice());
+    await sinkPromise;
+    return result;
+  }
+  async checkTrade(peerId, offer) {
+    return await this.request(
+      peerId,
+      "/badswap/0.1.0/check-trade",
+      offer,
+      (offer) => this._encodeCheckTradeRequest(offer),
+      (responseBytes) => this._decodeCheckTradeResponse(responseBytes)
+    );
+  }
+  async createTrade(peerId, offer) {
+    return await this.request(
+      peerId,
+      "/badswap/0.1.0/create-trade",
+      offer,
+      (offer) => this._encodeCreateTradeRequest(offer),
+      (responseBytes) => this._decodeCreateTradeResponse(responseBytes)
+    );
+  }
+  async notifyEscrow(transactionHash) {
+    const order = this.orderState[transactionHash];
+    return await this.request(
+      order.peerId,
+      "/badswap/0.1.0/notify-escrow",
+      order,
+      (order) => this._encodeNotifyEscrowRequest(order),
+      (responseBytes) => this._decodeNotifyEscrowResponse(order)
+    );
+  }
+  async requestSecret(transactionHash) {
+    const order = this.orderState[transationHash];
+    const response = await this.request(
+      order.peerId,
+      "/badswap/0.1.0/request-secret",
+      order,
+      (order) => this._encodeRequestSecretRequest(order),
+      (responseBytes) => this._decodeRequestSecretResponse(responseBytes)
+    );
+    const orderWithSecret = (this.orderState[transactionHash] = {
+      ...order,
+      secret: response.secret,
+    });
+    this.logger.info("secret|" + orderWithSecret.secret);
+    this.emit("received-secret", orderWithSecret);
+    return response;
+  }
+  async getEscrowAddress(transactionHash) {
+    return (await this.signer.provider.getTransactionReceipt(transactionHash))
+      .contractAddress;
+  }
+  async spendSecretForTransactionHash(transactionHash) {
+    const escrowAddress = await this.getEscrowAddress();
+    const order = this.orderState[transactionHash];
+    const secret = order.secret;
+    return await this.spendSecret(escrowAddress, secret);
+  }
+  async spendSecret(escrowAddress, secret) {
+    const tx = await this.signer.sendTransaction({
+      data: ethers.toBeArray(secret),
+      to: escrowAddress,
+    });
+    this.emit("spend-secret", {
+      escrowAddress,
+      secret,
+      txHash: tx.hash,
+    });
+    return tx;
+  }
 
   // adds new offer to this.offers: Map<hash, any>
   broadcastOffer(_offer: any) {
