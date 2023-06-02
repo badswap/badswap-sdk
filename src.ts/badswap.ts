@@ -641,6 +641,42 @@ export class Badswap extends BadP2P {
       (responseBytes) => this._decodeCreateTradeResponse(responseBytes)
     );
   }
+  async trade(peerId, offer) {
+    const isAvailable = await this.checkTrade(peerId, offer);
+    if (!isAvailable) throw Error('counterparty cannot fill trade');
+    const { maker, taker, offer } = await this.createTrade(peerId, offer);
+    const tradeAddress = await this.getTradeAddress(await this.signer.getAddress());
+    const tx = await this.approveTrade(offer.gives, tradeAddress);
+    this.logger.info('approve|' + tx.hash);
+    if (this._awaitReceipts) await tx.wait();
+    this.logger.info('approve|success!');
+    const contract = await this.prepareTransaction(offer, maker, taker tx.permitData || null);
+    const escrowTransaction = await this.signer.sendTransaction({
+      data: contract
+    });
+    const transactionHash = escrowTransaction.hash;
+    const order = this.orderState[transactionHash] = {
+      status: 'AWAIT_NOTIFY',
+      peerId,
+      transactionHash
+    };
+    this.logger.info('escrow|' + transactionHash);
+    await escrowTransaction.wait();
+    this.emit('escrow-created', order);
+    return await new Promise((resolve, reject) => {
+      const listener = (_transactionHash) => {
+        if (transactionHash === _transactionHash) {
+          this.removeListener('trade-complete', listener);
+	  resolve(this.orderState[transactionHash]);
+	}
+      };
+      this.on('trade-complete', listener);
+    });
+  }
+  async requestProof(transactionHash) {
+    const order = this.orderState[transactionHash];
+    return await this.request(order.peerId, '/badswap/0.1.0/request-proof', order, (order) => this._encodeRequestProofRequest(order), (responseBytes) => this._decodeRequestProofResponse(order));
+  }
   async notifyEscrow(transactionHash) {
     const order = this.orderState[transactionHash];
     return await this.request(
